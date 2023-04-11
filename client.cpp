@@ -18,8 +18,8 @@ const int SERVER_PORTS[NUM_SERVERS] = {33333, 33334};
 
 int sSockets[NUM_SERVERS];
 
-void* handleClient(void* arg);
-void* readServer(void* arg);
+void ** handleClient(void ** arg);
+void ** readServer(void ** arg);
 
 int main() {
     // Create sockets for each server instance
