@@ -5,76 +5,101 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <string.h>
-#include <stdlib.h>
+//link to system socket library
 
 #define MAX_MESSAGE_LENGTH 127
-
-// Define the number of server instances
-#define NUM_SERVERS 2
-
-// Define server addresses and ports
-const char* SERVER_ADDRESSES[NUM_SERVERS] = {"10.35.70.17", "10.35.70.18"};
-const int SERVER_PORTS[NUM_SERVERS] = {33333, 33334};
-
-int sSockets[NUM_SERVERS];
-
-void ** handleClient(void ** arg);
-void ** readServer(void ** arg);
+//define the maxium message length
+int sSocket;
+//int a varible sSocket
+void* readServer(void* arg);
+void* sendToServer(void* arg);
+//function prototype in C++ in front of the main function
 
 int main() {
-    // Create sockets for each server instance
-    for (int i = 0; i < NUM_SERVERS; i++) {
-        sSockets[i] = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-        if (sSockets[i] == -1) {
-            perror("Failed to create socket");
-            exit(-1);
-        }
-        printf("Socket %d created successfully\n", i);
+    sSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    //AF_INET: IPv4 address family 
+ 	//SOCK_STREAM: for TCP
+ 	//IPPROTO_TCP: TCP
+    if (sSocket == -1) {
+        perror("Failed to create socket");
+        //error message
+        return -1;
     }
-
-    // Bind each socket to its respective server address and port
-    for (int i = 0; i < NUM_SERVERS; i++) {
-        struct sockaddr_in addr = { 0 };
-        addr.sin_family = AF_INET;
-        addr.sin_addr.s_addr = inet_addr(SERVER_ADDRESSES[i]);
-        addr.sin_port = htons(SERVER_PORTS[i]);
-
-        int r = bind(sSockets[i], (struct sockaddr*)&addr, sizeof addr);
-        if (r == -1) {
-            perror("Failed to bind socket");
-            exit(-1);
-        }
-        printf("Socket %d bound to address %s:%d\n", i, SERVER_ADDRESSES[i], SERVER_PORTS[i]);
+    printf("Socket created successfully\n");
+    //print the successful message
+    struct sockaddr_in addr = { 0 };
+    addr.sin_family = AF_INET;
+    //AF_INET: IPv4 address family
+    addr.sin_addr.s_addr = inet_addr("10.35.70.17");
+    //Raspberry PI server address
+    addr.sin_port = htons(33333);
+    //Raspberry PI server port number
+    int r = connect(sSocket, (struct sockaddr*)&addr, sizeof addr);
+    //connect to the server
+    if (r == -1) {
+        perror("Failed to connect to server");
+        //error message
+        return -1;
     }
+    printf("Connected to server successfully\n");
+    //print the successful message
+    pthread_t readThread, sendThread;
+    //define two threads which are readThread and sendThread
+    pthread_create(&readThread, NULL, readServer, NULL);
+    //create threads to read meessages from the server
+    pthread_create(&sendThread, NULL, sendToServer, NULL);
+    //create threads to send meessages to the server
 
-    // Start listening for client connections on each socket
-    for (int i = 0; i < NUM_SERVERS; i++) {
-        if (listen(sSockets[i], 5) == -1) {
-            perror("Failed to listen for connections");
-            exit(-1);
-        }
-        printf("Socket %d listening for connections\n", i);
-    }
+    pthread_join(readThread, NULL);
+    //wait read thread ends
+    pthread_join(sendThread, NULL);
+    //wait send thread ends
 
-    // Accept incoming client connections and divide them between the servers
-    int i = 0;
+    close(sSocket);
+    //close socket
+    return 0;
+}
+
+void* readServer(void* arg) {
+//read server function
+    char message[128];
+    //char the message length to 128 bytes
     while (1) {
-        struct sockaddr_in clientAddr = { 0 };
-        socklen_t clientAddrLen = sizeof clientAddr;
-        int cSocket = accept(sSockets[i], (struct sockaddr*)&clientAddr, &clientAddrLen);
-        if (cSocket == -1) {
-            perror("Failed to accept client connection");
-            continue;
+        int r = recv(sSocket, message, MAX_MESSAGE_LENGTH, 0);
+        //receive the messages from the server
+        if (r > 0) {
+            message[r] = '\0';
+            printf("%s\n", message);
+            //print the messages in the terminal
         }
-        printf("Accepted client connection on socket %d\n", i);
-
-        // Create a new thread to handle the client connection
-        pthread_t thread;
-        int* args = (int*)malloc(sizeof(int));
-        *args = cSocket;
-        pthread_create(&thread, NULL, handleClient, args);
-
-        // Move on to the next server instance
-        i = (i + 1) % NUM_SERVERS;
+        else {
+            perror("Failed to receive message from server");
+            break;
+        }
     }
+    return NULL;
+}
+
+void* sendToServer(void* arg) {
+    char message[128];
+    //char the message length to 128 bytes
+    while (1) {
+        fgets(message, 128, stdin);
+        //scan the messages from the keypad inputs
+        int len = strlen(message);
+        //len function to read the length of the message
+        if (len > 0) {
+            if (message[len - 1] == '\n') {
+                message[len - 1] = '\0';
+                //if the last message is \n, then message ends
+            }
+            if (send(sSocket, message, strlen(message), MSG_NOSIGNAL) == -1) {
+                perror("Failed to send message to server");
+                //otherwise, fail to send messages
+                break;
+            }
+        }
+    }
+    return NULL;
+
 }
