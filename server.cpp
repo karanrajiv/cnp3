@@ -55,6 +55,14 @@ int main() {
             close(sSocket);
             return -3;
         }
+        char password[100];
+        printf("Please enter the password to connect to the server: ");
+        scanf("%s", password);
+        if (strcmp(password, "mypassword") != 0) {
+            printf("Incorrect password, disconnecting client.\n");
+            close(c);
+            continue;
+        }
         printf("Client number %d has successfully connected to server\n", count + 1);
         cSocket[count++] = c;
 
