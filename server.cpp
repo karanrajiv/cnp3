@@ -81,17 +81,17 @@ int main() {
 
 void* communicate(void* a) {
     int index = (int)(intptr_t)a;
-    char buff[128];
+    char buff[256];
     int r;
-    char temp[128];
+    char temp[256];
 
     while (1) {
-        r = recv(cSocket[index], buff, 127, 0);
+        r = recv(cSocket[index], buff, 255, 0);
         if (r > 0) {
             buff[r] = 0;
             printf(">> Client %d: %s \n", index + 1, buff);
 
-            memset(temp, 0, 128);
+            memset(temp, 0, 256);
             sprintf(temp, "Client %d: %s", index + 1, buff);
 
             pthread_mutex_lock(&mutex);
